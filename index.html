@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Survival Curves Analysis Platform (SCAP)</title>
+<style>
+  :root{
+    --bg:#5b6675;--bg2:#2f3640;--panel:#ffffff;--ink:#1d2733;--muted:#5d6b7a;
+    --line:#dfe4ea;--accent:#2b6cb0;--accentSoft:#e9f1f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);background-image:linear-gradient(to bottom,rgba(0,0,0,0) 55%,rgba(0,0,0,0.28) 100%);
+       background-attachment:fixed;color:var(--ink);font-size:14px;line-height:1.45;min-height:100vh}
+  header{background:#1d2733;color:#fff;padding:14px 22px;position:relative;overflow:hidden}
+  header h1{margin:0;font-size:18px;font-weight:600;position:relative;z-index:2;color:#ffe9a8}
+  header p{margin:3px 0 0;font-size:12.5px;color:#aab6c2;position:relative;z-index:2}
+  #headerDeco{position:absolute;top:0;right:0;height:100%;width:62%;max-width:760px;z-index:1;pointer-events:none}
+  .wrap{display:grid;grid-template-columns:400px minmax(0,1fr) 340px;gap:16px;padding:16px;align-items:start}
+  @media(max-width:1200px){.wrap{grid-template-columns:1fr 1fr}}
+  @media(max-width:760px){.wrap{grid-template-columns:1fr}}
+  .col{min-width:0}
+  .panel{background:var(--panel);border:1px solid rgba(0,0,0,.15);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.18);position:relative}
+  .panel>h2:first-child{margin:-16px -16px 14px;padding:9px 16px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;
+       color:var(--accent);background:var(--accentSoft);border-bottom:2px solid var(--accent);border-radius:10px 10px 0 0}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+  input[type=text],input[type=number],select,textarea{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff;color:var(--ink)}
+  textarea{font-family:monospace;font-size:12px;resize:vertical}
+  button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 11px;font-size:12.5px;color:var(--ink)}
+  button:hover{background:#eef2f6}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:#255a96}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .row{display:flex;gap:10px}.row>div{flex:1;min-width:0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{border:none;border-radius:0;padding:6px 12px}
+  .seg button.on{background:var(--accent);color:#fff}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .err{color:#c05621;font-size:12px;margin-top:6px}
+  .chartwrap{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;text-align:center}
+  #kmChart svg,#forestChart svg{max-width:100%;height:auto}
+  .statsbox{font-size:12.5px;max-height:400px;overflow:auto}
+  .statsbox table{border-collapse:collapse;width:100%}
+  .statsbox th,.statsbox td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:left}
+  .statsbox th{color:var(--muted);font-weight:600}
+  .sig{font-weight:700}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--accent);font-size:12.5px}
+  .slabel{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:10px 0 2px}
+  .slabel b{color:var(--ink);font-weight:600}
+  .ctlrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+  .exportcard{background:linear-gradient(135deg,var(--accent),#1d2733);border-color:rgba(0,0,0,.25)}
+  .exportcard>h2:first-child{background:transparent;border:none;margin:0 0 12px;padding:0;color:#ffe9a8;display:flex;align-items:center;gap:8px}
+  .exportcard{padding:20px 16px 24px}
+  .exbtns{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .exbtns button{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.95);color:#1d2733;
+       border:none;border-radius:8px;font-weight:600;font-size:12px;padding:12px 8px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  .exbtns button:hover{background:#fff;transform:translateY(-1px)}
+  .exbtns button svg{stroke:var(--accent)}
+  .cardExpand{position:absolute;top:7px;right:10px;z-index:5;width:30px;height:30px;padding:0;font-size:16px;line-height:1;
+       border-radius:7px;border:1px solid var(--accent);background:var(--accentSoft);color:var(--accent);
+       display:inline-flex;align-items:center;justify-content:center}
+  .cardExpand:hover{filter:brightness(.95)}
+  .panel.modal{position:fixed;inset:18px;z-index:200;overflow:auto;box-shadow:0 12px 50px rgba(0,0,0,.5);animation:growIn .24s cubic-bezier(.2,.7,.3,1)}
+  @keyframes growIn{from{transform:scale(.55);opacity:.25}to{transform:scale(1);opacity:1}}
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:150;animation:fadeIn .24s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .panel.modal .cardExpand{position:fixed;top:30px;right:30px}
+  .panel.modal .chartwrap{min-height:78vh;display:flex;align-items:center;justify-content:center}
+  .panel.modal #kmChart svg{height:80vh;width:auto;max-width:96%;max-height:80vh}
+  .dropzone{border:2px dashed var(--line);border-radius:8px;padding:20px;text-align:center;color:var(--muted);transition:all .2s;margin-bottom:10px}
+  .dropzone.over{border-color:var(--accent);background:var(--accentSoft);color:var(--accent)}
+  .dropzone input[type=file]{display:none}
+  #pageThemePanel{margin:4px 0 28px}
+  .themeswatch{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.8);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .1s}
+  .themeswatch:hover{transform:scale(1.15)}
+  .themeswatch.active{outline:2px solid #fff;outline-offset:2px}
+  .copyright{text-align:center;font-size:11px;color:rgba(255,255,255,.8);padding:14px 0 22px;margin-top:6px}
+  .grpchip{display:inline-flex;align-items:center;gap:4px;background:#eef2f6;border-radius:14px;padding:3px 10px;margin:3px 4px 0 0;font-size:12px}
+  .grpchip.ref{background:var(--accentSoft);border:1px solid var(--accent)}
+</style>
+</head>
+<body>
+<header id="appHeader">
+  <h1>Survival Curves Analysis Platform (SCAP)</h1>
+  <p>Upload or enter survival data · Kaplan-Meier curves · Log-rank test · Cox PH hazard ratios · SVG &amp; PNG export</p>
+</header>
+
+<div class="wrap">
+  <!-- LEFT -->
+  <div class="col">
+    <div class="panel">
+      <h2>1 · Data input</h2>
+      <div class="ctlrow"><span style="font-size:12px;color:var(--muted)">Format:</span>
+        <div class="seg" id="fmtSeg">
+          <button data-f="aggregate" class="on">Aggregate</button>
+          <button data-f="individual">Individual</button>
+        </div>
+      </div>
+      <div class="hint" id="fmtHint">Aggregate: each row = a time point per tank with death count. Individual: one row per subject with time &amp; event status.</div>
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileIn').click()">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        <div style="margin-top:6px">Drop a TSV / CSV file here, or <b>click to browse</b></div>
+        <input type="file" id="fileIn" accept=".txt,.tsv,.csv,.tab">
+      </div>
+      <label>Or paste / edit data below:</label>
+      <textarea id="rawText" rows="12" placeholder="group&#9;tank&#9;Day&#9;start_number&#9;Daily_dead&#10;DHC&#9;DHC_1&#9;0&#9;100&#9;0&#10;DHC&#9;DHC_1&#9;5&#9;100&#9;2&#10;..."></textarea>
+      <div class="btns">
+        <button onclick="loadExample()">Example (aggregate)</button>
+        <button onclick="loadExampleIndiv()">Example (individual)</button>
+        <button class="primary" style="flex:1" onclick="parseAndRun()">Analyze</button>
+      </div>
+      <div class="err" id="dataErr"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Groups</h2>
+      <div id="groupInfo" class="hint">Load data first to see detected groups.</div>
+      <label>Reference (control) group</label>
+      <select id="refSel" onchange="runAnalysis()"></select>
+      <div id="groupChips" style="margin-top:8px"></div>
+    </div>
+
+    <div class="panel exportcard">
+      <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Export</h2>
+      <div class="exbtns">
+        <button onclick="exportSVG('km')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>KM · SVG</button>
+        <button onclick="exportPNG('km')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>KM · PNG</button>
+        <button onclick="exportSVG('forest')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Forest · SVG</button>
+        <button onclick="exportPNG('forest')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Forest · PNG</button>
+        <button onclick="exportCSV()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Stats · CSV</button>
+        <button onclick="exportXLSX()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Stats · XLSX</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="col">
+    <div class="panel" id="kmPanel">
+      <h2>Kaplan-Meier Plot</h2>
+      <button class="cardExpand" onclick="toggleExpand('km')" title="Expand">&#10530;</button>
+      <div class="chartwrap" id="kmChart"><div class="hint">Load data and click Analyze to generate plots.</div></div>
+    </div>
+    <div class="panel">
+      <h2>Hazard Ratio Forest Plot</h2>
+      <div class="chartwrap" id="forestChart"></div>
+    </div>
+    <div class="panel">
+      <h2>Statistical results</h2>
+      <div class="statsbox" id="stats"></div>
+      <details><summary>Methods &amp; notes</summary><div class="hint" id="methodNotes">Kaplan-Meier estimator with Greenwood's 95% CI. Log-rank test for group comparison. Cox proportional hazards model for hazard ratios (Wald test). All computed client-side in JavaScript.</div></details>
+    </div>
+    <div id="pageThemePanel">
+      <div style="text-align:center;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:7px">Page colour theme</div>
+      <div id="pageThemeRow" style="display:flex;flex-wrap:wrap;gap:9px;justify-content:center"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col">
+    <div class="panel">
+      <h2>3 · Appearance</h2>
+      <label>Plot title</label>
+      <input type="text" id="titleIn" value="Survival Analysis" oninput="runAnalysis()">
+      <div class="row">
+        <div><label>X-axis</label><input type="text" id="xlabIn" value="Time (days)" oninput="runAnalysis()"></div>
+        <div><label>Y-axis (KM)</label><input type="text" id="ylabIn" value="Survival Probability" oninput="runAnalysis()"></div>
+      </div>
+      <div class="ctlrow" style="margin-top:10px"><span style="font-size:12px;color:var(--muted)">Curve type:</span>
+        <div class="seg" id="curveSeg">
+          <button data-c="survival" class="on">Survival</button>
+          <button data-c="mortality">Mortality</button>
+          <button data-c="cumhaz">Cum. hazard</button>
+        </div>
+      </div>
+      <div class="ctlrow"><span style="font-size:12px;color:var(--muted)">Color theme:</span>
+        <select id="themeSel" style="width:auto;flex:1" onchange="updatePalette();runAnalysis()">
+          <optgroup label="Journal palettes">
+            <option value="npg">NPG — Nature</option>
+            <option value="aaas">AAAS — Science</option>
+            <option value="nejm">NEJM</option>
+            <option value="lancet" selected>Lancet</option>
+            <option value="jco">JCO</option>
+          </optgroup>
+          <optgroup label="Generic">
+            <option value="classic">Classic</option>
+            <option value="d3">D3</option>
+          </optgroup>
+        </select>
+      </div>
+      <div id="themeSwatch" style="display:flex;gap:3px;margin-top:2px;margin-bottom:6px"></div>
+      <label><input type="checkbox" id="ciChk" checked style="width:auto;margin-right:6px" onchange="runAnalysis()">Show 95% CI bands (KM plot)</label>
+      <label><input type="checkbox" id="forestCiChk" checked style="width:auto;margin-right:6px" onchange="runAnalysis()">Show 95% CI bars (Forest plot)</label>
+      <label><input type="checkbox" id="riskChk" checked style="width:auto;margin-right:6px" onchange="runAnalysis()">Show risk table</label>
+      <label><input type="checkbox" id="medianChk" style="width:auto;margin-right:6px" onchange="runAnalysis()">Show median survival lines</label>
+      <label><input type="checkbox" id="censorChk" checked style="width:auto;margin-right:6px" onchange="runAnalysis()">Show censor marks</label>
+      <label><input type="checkbox" id="pvalChk" checked style="width:auto;margin-right:6px" onchange="runAnalysis()">Show p-value on KM plot</label>
+      <div class="slabel"><span>Line weight</span><b id="lwVal">1.0x</b></div>
+      <input type="range" id="lwIn" min="0.4" max="3" step="0.1" value="1" oninput="cfg.lw=+this.value;document.getElementById('lwVal').textContent=cfg.lw.toFixed(1)+'x';runAnalysis()">
+      <div class="slabel"><span>Font size</span><b id="fsVal">1.0x</b></div>
+      <input type="range" id="fsIn" min="0.7" max="1.8" step="0.05" value="1" oninput="cfg.fs=+this.value;document.getElementById('fsVal').textContent=cfg.fs.toFixed(1)+'x';runAnalysis()">
+      <div class="row" style="margin-top:12px">
+        <div><label>Width (px)</label><input type="number" id="wIn" value="640" min="300" max="2000" step="20" onchange="cfg.W=+this.value;runAnalysis()"></div>
+        <div><label>Aspect ratio</label>
+          <select id="arIn" onchange="cfg.ar=+this.value;runAnalysis()">
+            <option value="1.4">Standard (7:5)</option>
+            <option value="1.333">4:3</option>
+            <option value="1.6" selected>16:10</option>
+            <option value="1">Square</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>4 · Statistics explained</h2>
+      <div class="statsbox" id="explainBox" style="max-height:360px;line-height:1.5">
+        <p><b>Kaplan-Meier estimator</b> computes survival probability at each event time as a running product of conditional survival fractions. 95% CI uses Greenwood's formula.</p>
+        <p><b>Log-rank test</b> compares survival distributions non-parametrically. Under H0 (no difference), the test statistic follows chi-squared with df = k-1.</p>
+        <p><b>Cox proportional hazards</b> model quantifies the hazard ratio (HR) via partial likelihood maximization (Newton-Raphson). HR &gt; 1 = higher risk than reference; HR &lt; 1 = protective.</p>
+        <p><b>References:</b></p>
+        <ol style="font-size:11.5px;color:#444;margin:0 0 0 16px;padding:0">
+          <li>Kaplan, E. L. &amp; Meier, P. (1958). Nonparametric estimation from incomplete observations. <i>JASA, 53</i>(282), 457-481.</li>
+          <li>Cox, D. R. (1972). Regression models and life-tables. <i>JRSS B, 34</i>(2), 187-220.</li>
+          <li>Greenwood, M. (1926). <i>Reports on public health and medical subjects.</i> No. 33.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="copyright">&copy; 2026 Copyright by Nguyen Thanh Phuong</div>
+
+<script>
+/* ===================== MATH UTILITIES ===================== */
+function logGamma(x){var c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5];var ser=1.000000000190015,xx=x,y=x,tmp=x+5.5;tmp-=(xx+.5)*Math.log(tmp);for(var j=0;j<6;j++){y+=1;ser+=c[j]/y;}return -tmp+Math.log(2.5066282746310005*ser/xx);}
+function erf(x){var s=x<0?-1:1;x=Math.abs(x);var a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911,t=1/(1+p*x);return s*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x));}
+function Phi(x){return .5*(1+erf(x/Math.SQRT2));}
+// Regularized lower incomplete gamma P(a,x) — series for x<a+1
+function gammaP(a,x){if(x<=0)return 0;var sum=1/a,term=1/a;for(var n=1;n<300;n++){term*=x/(a+n);sum+=term;if(Math.abs(term)<1e-14*Math.abs(sum))break;}return sum*Math.exp(-x+a*Math.log(x)-logGamma(a));}
+// Regularized upper incomplete gamma Q(a,x) — continued fraction for x>=a+1
+function gammaQ(a,x){if(x<=0)return 1;if(x<a+1)return 1-gammaP(a,x);var b=x+1-a,c=1e30,d=1/b,h=d;for(var i=1;i<300;i++){var an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-30)d=1e-30;c=b+an/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;var del=d*c;h*=del;if(Math.abs(del-1)<1e-12)break;}return Math.exp(-x+a*Math.log(x)-logGamma(a))*h;}
+function chi2Pval(x,df){if(x<=0||df<=0)return 1;return gammaQ(df/2,x/2);}
+
+/* ===================== SURVIVAL STATISTICS ===================== */
+// Kaplan-Meier estimator: returns {times, surv, lower, upper, nrisk, nev, ncen}
+function kaplanMeier(times,statuses){
+  var n=times.length;if(!n)return null;
+  // Collect unique event times
+  var evSet={};for(var i=0;i<n;i++)if(statuses[i]===1)evSet[times[i]]=1;
+  var evTimes=Object.keys(evSet).map(Number).sort((a,b)=>a-b);
+  var res={times:[0],surv:[1],lower:[1],upper:[1],nrisk:[n],nev:[0],ncen:[0]};
+  var alive=n,S=1,greenSum=0;
+  for(var ti=0;ti<evTimes.length;ti++){
+    var t=evTimes[ti];
+    // Count censored strictly before this event time (after previous event time or 0)
+    var prevT=ti>0?evTimes[ti-1]:-Infinity;
+    var cens=0;
+    for(i=0;i<n;i++){
+      if(statuses[i]===0&&times[i]<t&&times[i]>prevT)cens++;
+    }
+    alive-=cens;
+    var d=0;for(i=0;i<n;i++)if(statuses[i]===1&&times[i]===t)d++;
+    if(alive<=0)break;
+    S*=(1-d/alive);
+    if(alive>d)greenSum+=d/(alive*(alive-d));
+    var se=S*Math.sqrt(greenSum);
+    res.times.push(t);res.surv.push(S);
+    res.lower.push(Math.max(0,S-1.96*se));
+    res.upper.push(Math.min(1,S+1.96*se));
+    res.nrisk.push(alive);res.nev.push(d);res.ncen.push(cens);
+    alive-=d;
+  }
+  // Final censoring
+  var lastT=evTimes.length?evTimes[evTimes.length-1]:0;
+  var finalCen=0;for(i=0;i<n;i++)if(statuses[i]===0&&times[i]>=lastT)finalCen++;
+  res.finalCensored=finalCen;res.totalN=n;
+  // Censor times for plotting marks
+  res.censorTimes=[];res.censorS=[];
+  for(i=0;i<n;i++){if(statuses[i]===0){var ct=times[i],cs=1;
+    for(var j=0;j<res.times.length;j++){if(res.times[j]<=ct)cs=res.surv[j];}
+    res.censorTimes.push(ct);res.censorS.push(cs);}}
+  return res;
+}
+// Median survival from KM
+function medianSurv(km){if(!km)return{median:NaN,lower:NaN,upper:NaN};
+  var med=NaN;for(var i=1;i<km.surv.length;i++){if(km.surv[i]<=.5){med=km.times[i];break;}}
+  var lo=NaN,hi=NaN;
+  for(i=1;i<km.upper.length;i++){if(km.upper[i]<=.5){lo=km.times[i];break;}}
+  for(i=1;i<km.lower.length;i++){if(km.lower[i]<=.5){hi=km.times[i];break;}}
+  return{median:med,lower:lo,upper:hi};}
+
+// Log-rank test (multiple groups)
+function logRankTest(groupData){
+  // groupData: [{times:[], statuses:[]}]
+  var K=groupData.length;if(K<2)return{chi2:0,df:0,p:1};
+  // Collect all unique event times
+  var allEv={};groupData.forEach(function(g){g.times.forEach(function(t,i){if(g.statuses[i]===1)allEv[t]=1;});});
+  var evTimes=Object.keys(allEv).map(Number).sort(function(a,b){return a-b;});
+  // For each group, track who is at risk
+  var individuals=[];groupData.forEach(function(g,gi){g.times.forEach(function(t,i){individuals.push({t:t,s:g.statuses[i],g:gi});});});
+  // For K=2, one degree of freedom: use the standard formula
+  // General: compute O_g - E_g for each group and the variance-covariance matrix
+  var OE=new Array(K).fill(0);// O_g - E_g
+  var V=[];for(var g=0;g<K;g++){V[g]=new Array(K).fill(0);}
+  evTimes.forEach(function(t){
+    var nj=new Array(K).fill(0),dj=new Array(K).fill(0);
+    individuals.forEach(function(ind){if(ind.t>=t)nj[ind.g]++;if(ind.t===t&&ind.s===1)dj[ind.g]++;});
+    var N=nj.reduce(function(a,b){return a+b;},0),D=dj.reduce(function(a,b){return a+b;},0);
+    if(N<=1||D===0)return;
+    for(g=0;g<K;g++){
+      var e=nj[g]*D/N;OE[g]+=dj[g]-e;
+      for(var h=0;h<K;h++){
+        var v=D*(N-D)*nj[g]*((g===h?1:0)*N-nj[h])/(N*N*(N-1));
+        V[g][h]+=v;
+      }
+    }
+  });
+  // For K=2, chi2 = (O1-E1)^2 / V11
+  if(K===2){var chi2=V[0][0]>0?OE[0]*OE[0]/V[0][0]:0;return{chi2:chi2,df:1,p:chi2Pval(chi2,1)};}
+  // General K-group: use first (K-1) components with matrix inversion
+  // chi2 = (O-E)' V^{-1} (O-E) using (K-1)x(K-1) submatrix (last group is redundant)
+  var m=K-1;
+  // Build (K-1)x(K-1) variance submatrix and (K-1) vector
+  var A=[],b=[];
+  for(g=0;g<m;g++){A[g]=[];for(var h2=0;h2<m;h2++)A[g][h2]=V[g][h2];b[g]=OE[g];}
+  // Invert A via Gauss-Jordan elimination
+  var aug=[];for(g=0;g<m;g++){aug[g]=[];for(h2=0;h2<m;h2++)aug[g][h2]=A[g][h2];for(h2=0;h2<m;h2++)aug[g][m+h2]=(g===h2?1:0);}
+  for(var col=0;col<m;col++){
+    var piv=col;for(g=col+1;g<m;g++){if(Math.abs(aug[g][col])>Math.abs(aug[piv][col]))piv=g;}
+    if(piv!==col){var tmp2=aug[col];aug[col]=aug[piv];aug[piv]=tmp2;}
+    var d2=aug[col][col];if(Math.abs(d2)<1e-15)continue;
+    for(h2=0;h2<2*m;h2++)aug[col][h2]/=d2;
+    for(g=0;g<m;g++){if(g===col)continue;var f2=aug[g][col];for(h2=0;h2<2*m;h2++)aug[g][h2]-=f2*aug[col][h2];}
+  }
+  // Extract inverse
+  var Vinv=[];for(g=0;g<m;g++){Vinv[g]=[];for(h2=0;h2<m;h2++)Vinv[g][h2]=aug[g][m+h2];}
+  // Compute chi2 = b' Vinv b
+  var chi2=0;for(g=0;g<m;g++)for(h2=0;h2<m;h2++)chi2+=b[g]*Vinv[g][h2]*b[h2];
+  return{chi2:chi2,df:K-1,p:chi2Pval(chi2,K-1)};
+}
+
+// Cox PH with single binary covariate (group 0 vs group g) via Newton-Raphson
+function coxPH(times,statuses,xs){
+  // xs: 0 or 1 indicator
+  var n=times.length;if(n<2)return{beta:NaN,se:NaN,hr:NaN,hrLo:NaN,hrHi:NaN,p:1};
+  // Sort by time (descending for risk set computation)
+  var idx=[];for(var i=0;i<n;i++)idx.push(i);
+  idx.sort(function(a,b){return times[a]-times[b]||(statuses[b]-statuses[a]);});
+  var st=idx.map(function(i){return times[i];}),sd=idx.map(function(i){return statuses[i];}),sx=idx.map(function(i){return xs[i];});
+  var beta=0;
+  for(var iter=0;iter<50;iter++){
+    var score=0,info=0;
+    // Breslow partial likelihood: cumulative risk set sums from the tail
+    var cumW=new Array(n),cumWX=new Array(n),cumWX2=new Array(n);
+    var cw=0,cwx=0,cwx2=0;
+    for(i=n-1;i>=0;i--){var w2=Math.exp(beta*sx[i]);cw+=w2;cwx+=sx[i]*w2;cwx2+=sx[i]*sx[i]*w2;cumW[i]=cw;cumWX[i]=cwx;cumWX2[i]=cwx2;}
+    for(i=0;i<n;i++){
+      if(sd[i]===1){
+        var s0=cumW[i],s1=cumWX[i],s2=cumWX2[i];
+        if(s0>0){score+=sx[i]-s1/s0;info+=s2/s0-(s1/s0)*(s1/s0);}
+      }
+    }
+    if(info<=0)break;
+    var delta=score/info;beta+=delta;
+    if(Math.abs(delta)<1e-9)break;
+  }
+  var se=info>0?1/Math.sqrt(info):Infinity;
+  var z=se>0&&isFinite(se)?Math.abs(beta)/se:0;
+  var p=2*(1-Phi(z));
+  return{beta:beta,se:se,hr:Math.exp(beta),hrLo:Math.exp(beta-1.96*se),hrHi:Math.exp(beta+1.96*se),p:p,z:z};
+}
+
+/* ===================== DATA MODEL ===================== */
+var fmt='aggregate',indivData=null,groups=[],refGroup='',kmResults={},coxResults=[],lrResult=null;
+var cfg={lw:1,fs:1,W:640,ar:1.6,curve:'survival'};
+var THEMES={
+  npg:['#E64B35','#4DBBD5','#00A087','#3C5488','#F39B7F','#8491B4','#91D1C2','#DC0000','#7E6148'],
+  aaas:['#3B4992','#EE0000','#008B45','#631879','#008280','#BB0021','#5F559B','#A20056','#808180'],
+  nejm:['#BC3C29','#0072B5','#E18727','#20854E','#7876B1','#6F99AD','#FFDC91','#EE4C97'],
+  lancet:['#00468B','#ED0000','#42B540','#0099B4','#925E9F','#FDAF91','#AD002A','#ADB6B6'],
+  jco:['#0073C2','#EFC000','#868686','#CD534C','#7AA6DC','#003C67','#8F7700','#3B3B3B'],
+  classic:['#4878d0','#ee854a','#6acc64','#d65f5f','#956cb4','#8c613c','#dc7ec0'],
+  d3:['#1F77B4','#FF7F0E','#2CA02C','#D62728','#9467BD','#8C564B','#E377C2','#7F7F7F']
+};
+var PALETTE=THEMES.npg;
+function updatePalette(){PALETTE=THEMES[document.getElementById('themeSel').value]||THEMES.npg;
+  document.getElementById('themeSwatch').innerHTML=PALETTE.slice(0,7).map(function(c){return '<span style="width:18px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.2);display:inline-block;background:'+c+'"></span>';}).join('');}
+
+function escH(s){return String(s).replace(/[&<>"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+function fmtP(p){return p<.0001?'p<0.0001':p<.001?'p='+p.toExponential(1):'p='+p.toFixed(4);}
+function stars(p){return p>.05?'ns':p>.01?'*':p>.001?'**':'***';}
+
+/* Parse data */
+function parseData(text){
+  var lines=text.trim().replace(/\r/g,'').split('\n').filter(function(l){return l.trim();});
+  if(lines.length<2){showErr('Need at least a header + one data row.');return null;}
+  var sep=lines[0].indexOf('\t')>=0?'\t':',';
+  var header=lines[0].split(sep).map(function(s){return s.trim().toLowerCase();});
+  var rows=[];for(var i=1;i<lines.length;i++){var cols=lines[i].split(sep).map(function(s){return s.trim();});if(cols.length>=header.length)rows.push(cols);}
+  if(fmt==='aggregate')return parseAggregate(header,rows);
+  return parseIndividual(header,rows);
+}
+function findCol(header,candidates){for(var i=0;i<header.length;i++){for(var j=0;j<candidates.length;j++){if(header[i]===candidates[j])return i;}}return -1;}
+
+function parseAggregate(header,rows){
+  var gi=findCol(header,['exp','group','condition','treatment']);
+  var ti=findCol(header,['tank','replicate','tank_id','rep']);
+  var di=findCol(header,['day','time','days','timepoint']);
+  var ni=findCol(header,['start_number','n','n_start','start_n','total']);
+  var ki=findCol(header,['daily_dead','deaths','dead','n_dead','events']);
+  if(gi<0||di<0||ki<0){showErr('Need columns: group/exp, Day/time, Daily_dead/deaths. Found: '+header.join(', '));return null;}
+  // Expand to individual level
+  var indiv=[];
+  var tanks={};
+  rows.forEach(function(r){
+    var grp=r[gi],tank=ti>=0?r[ti]:grp,day=+r[di],nstart=ni>=0?+r[ni]:NaN,dead=+r[ki];
+    var key=grp+'|'+tank;if(!tanks[key])tanks[key]={grp:grp,tank:tank,nstart:nstart,rows:[]};
+    tanks[key].rows.push({day:day,dead:dead});
+    if(!isNaN(nstart)&&isNaN(tanks[key].nstart))tanks[key].nstart=nstart;
+  });
+  Object.keys(tanks).forEach(function(key){
+    var tk=tanks[key];tk.rows.sort(function(a,b){return a.day-b.day;});
+    var totalDead=tk.rows.reduce(function(s,r){return s+r.dead;},0);
+    var maxDay=Math.max.apply(null,tk.rows.map(function(r){return r.day;}));
+    var nAlive=tk.nstart-totalDead;
+    tk.rows.forEach(function(r){
+      for(var d=0;d<r.dead;d++)indiv.push({time:r.day,status:1,group:tk.grp,tank:tk.tank});
+    });
+    if(nAlive>0)for(var d=0;d<nAlive;d++)indiv.push({time:maxDay,status:0,group:tk.grp,tank:tk.tank});
+  });
+  return indiv;
+}
+function parseIndividual(header,rows){
+  var gi=findCol(header,['group','exp','condition','treatment']);
+  var ti=findCol(header,['time','day','days','survival_time']);
+  var si=findCol(header,['status','event','dead','censored']);
+  var ki=findCol(header,['tank','replicate','tank_id']);
+  if(gi<0||ti<0||si<0){showErr('Need columns: group, time, status. Found: '+header.join(', '));return null;}
+  return rows.map(function(r){return{time:+r[ti],status:+r[si],group:r[gi],tank:ki>=0?r[ki]:r[gi]};});
+}
+function showErr(msg){document.getElementById('dataErr').textContent=msg;}
+
+function loadExample(){
+  fmt='aggregate';
+  document.querySelectorAll('#fmtSeg button').forEach(function(b){b.classList.toggle('on',b.dataset.f==='aggregate');});
+  document.getElementById('rawText').value=
+'exp\ttank\tDay\tstart_number\tDaily_dead\n'+
+'DHC\tDHC_1\t0\t100\t0\nDHC\tDHC_2\t0\t100\t0\n'+
+'DHC\tDHC_1\t5\t100\t2\nDHC\tDHC_2\t5\t100\t0\n'+
+'DHC\tDHC_1\t6\t100\t4\nDHC\tDHC_2\t6\t100\t5\n'+
+'DHC\tDHC_1\t7\t100\t8\nDHC\tDHC_2\t7\t100\t21\n'+
+'DHC\tDHC_1\t8\t100\t10\nDHC\tDHC_2\t8\t100\t14\n'+
+'DHC\tDHC_1\t9\t100\t7\nDHC\tDHC_2\t9\t100\t8\n'+
+'DHC\tDHC_1\t10\t100\t5\nDHC\tDHC_2\t10\t100\t7\n'+
+'DHC\tDHC_1\t11\t100\t6\nDHC\tDHC_2\t11\t100\t6\n'+
+'DHC\tDHC_1\t12\t100\t1\nDHC\tDHC_2\t12\t100\t2\n'+
+'DHC\tDHC_1\t13\t100\t1\nDHC\tDHC_2\t13\t100\t1\n'+
+'DHC\tDHC_1\t14\t100\t1\nDHC\tDHC_2\t14\t100\t0\n'+
+'DHC\tDHC_1\t15\t100\t2\nDHC\tDHC_2\t15\t100\t0\n'+
+'DHC\tDHC_1\t29\t100\t0\nDHC\tDHC_2\t29\t100\t0\n'+
+'CC\tCC_1\t0\t90\t0\nCC\tCC_2\t0\t95\t0\n'+
+'CC\tCC_1\t5\t90\t1\nCC\tCC_2\t5\t95\t3\n'+
+'CC\tCC_1\t6\t90\t3\nCC\tCC_2\t6\t95\t8\n'+
+'CC\tCC_1\t7\t90\t6\nCC\tCC_2\t7\t95\t10\n'+
+'CC\tCC_1\t8\t90\t9\nCC\tCC_2\t8\t95\t12\n'+
+'CC\tCC_1\t9\t90\t7\nCC\tCC_2\t9\t95\t6\n'+
+'CC\tCC_1\t10\t90\t5\nCC\tCC_2\t10\t95\t8\n'+
+'CC\tCC_1\t11\t90\t4\nCC\tCC_2\t11\t95\t5\n'+
+'CC\tCC_1\t12\t90\t3\nCC\tCC_2\t12\t95\t4\n'+
+'CC\tCC_1\t13\t90\t2\nCC\tCC_2\t13\t95\t3\n'+
+'CC\tCC_1\t14\t90\t1\nCC\tCC_2\t14\t95\t2\n'+
+'CC\tCC_1\t15\t90\t0\nCC\tCC_2\t15\t95\t1\n'+
+'CC\tCC_1\t29\t90\t0\nCC\tCC_2\t29\t95\t0\n'+
+'DC\tDC_1\t0\t80\t0\nDC\tDC_2\t0\t83\t0\n'+
+'DC\tDC_1\t5\t80\t6\nDC\tDC_2\t5\t83\t1\n'+
+'DC\tDC_1\t6\t80\t5\nDC\tDC_2\t6\t83\t12\n'+
+'DC\tDC_1\t7\t80\t4\nDC\tDC_2\t7\t83\t13\n'+
+'DC\tDC_1\t8\t80\t8\nDC\tDC_2\t8\t83\t7\n'+
+'DC\tDC_1\t9\t80\t5\nDC\tDC_2\t9\t83\t3\n'+
+'DC\tDC_1\t10\t80\t5\nDC\tDC_2\t10\t83\t3\n'+
+'DC\tDC_1\t11\t80\t4\nDC\tDC_2\t11\t83\t5\n'+
+'DC\tDC_1\t12\t80\t3\nDC\tDC_2\t12\t83\t12\n'+
+'DC\tDC_1\t13\t80\t9\nDC\tDC_2\t13\t83\t6\n'+
+'DC\tDC_1\t14\t80\t2\nDC\tDC_2\t14\t83\t4\n'+
+'DC\tDC_1\t15\t80\t1\nDC\tDC_2\t15\t83\t2\n'+
+'DC\tDC_1\t17\t80\t1\nDC\tDC_2\t17\t83\t0\n'+
+'DC\tDC_1\t29\t80\t0\nDC\tDC_2\t29\t83\t0';
+  refGroup='DC';
+  parseAndRun();
+}
+
+function loadExampleIndiv(){
+  fmt='individual';
+  document.querySelectorAll('#fmtSeg button').forEach(function(b){b.classList.toggle('on',b.dataset.f==='individual');});
+  // Generate a small individual-level example with 3 groups
+  var lines=['group\ttime\tstatus'];
+  // DHC: 20 subjects, higher mortality
+  var dhcTimes=[3,5,5,6,6,7,7,7,8,8,9,9,10,11,12,14,20,20,20,20];
+  var dhcStat =[1,1,1,1,1,1,1,1,1,1,1,1,1, 1, 1, 1, 0, 0, 0, 0];
+  // CC: 20 subjects, moderate mortality
+  var ccTimes =[4,6,7,7,8,8,9,10,10,11,12,13,14,15,20,20,20,20,20,20];
+  var ccStat  =[1,1,1,1,1,1,1,1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+  // DC: 20 subjects, control (highest mortality)
+  var dcTimes =[2,4,5,5,6,6,7,7,8,8,8,9,9,10,11,12,13,20,20,20];
+  var dcStat  =[1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1, 1, 1, 0, 0, 0];
+  for(var i=0;i<dhcTimes.length;i++)lines.push('DHC\t'+dhcTimes[i]+'\t'+dhcStat[i]);
+  for(i=0;i<ccTimes.length;i++)lines.push('CC\t'+ccTimes[i]+'\t'+ccStat[i]);
+  for(i=0;i<dcTimes.length;i++)lines.push('DC\t'+dcTimes[i]+'\t'+dcStat[i]);
+  document.getElementById('rawText').value=lines.join('\n');
+  refGroup='DC';
+  parseAndRun();
+}
+
+function parseAndRun(){
+  showErr('');
+  var text=document.getElementById('rawText').value;
+  if(!text.trim()){showErr('No data entered.');return;}
+  indivData=parseData(text);
+  if(!indivData||!indivData.length)return;
+  // Detect groups
+  var gs={};indivData.forEach(function(d){gs[d.group]=1;});
+  groups=Object.keys(gs).sort();
+  if(groups.length<2){showErr('Need at least 2 groups. Found: '+groups.join(', '));return;}
+  // Populate ref selector
+  var sel=document.getElementById('refSel');
+  sel.innerHTML=groups.map(function(g){return '<option value="'+escH(g)+'">'+escH(g)+'</option>';}).join('');
+  if(!refGroup||groups.indexOf(refGroup)<0){
+    // Prefer DC as default reference if it exists
+    refGroup=groups.indexOf('DC')>=0?'DC':groups[0];
+  }
+  sel.value=refGroup;
+  document.getElementById('groupInfo').textContent='Detected '+groups.length+' groups: '+groups.join(', ')+' (N='+indivData.length+' individuals)';
+  // Chips
+  var chips=groups.map(function(g){return '<span class="grpchip'+(g===refGroup?' ref':'')+'">'+escH(g)+' (n='+(indivData.filter(function(d){return d.group===g;}).length)+')</span>';}).join('');
+  document.getElementById('groupChips').innerHTML=chips;
+  runAnalysis();
+}
+
+function runAnalysis(){
+  if(!indivData||!indivData.length)return;
+  refGroup=document.getElementById('refSel').value||groups[0];
+  // Update group chips to highlight current reference
+  document.getElementById('groupChips').innerHTML=groups.map(function(g){return '<span class="grpchip'+(g===refGroup?' ref':'')+'">'+escH(g)+' (n='+(indivData.filter(function(d){return d.group===g;}).length)+')</span>';}).join('');
+  // KM per group
+  kmResults={};groups.forEach(function(g){
+    var gd=indivData.filter(function(d){return d.group===g;});
+    kmResults[g]=kaplanMeier(gd.map(function(d){return d.time;}),gd.map(function(d){return d.status;}));
+  });
+  // Log-rank
+  var gData=groups.map(function(g){var gd=indivData.filter(function(d){return d.group===g;});return{times:gd.map(function(d){return d.time;}),statuses:gd.map(function(d){return d.status;})};});
+  lrResult=logRankTest(gData);
+  // Cox PH: each non-ref group vs ref
+  coxResults=[];
+  groups.forEach(function(g){
+    if(g===refGroup)return;
+    var subset=indivData.filter(function(d){return d.group===refGroup||d.group===g;});
+    var ts=subset.map(function(d){return d.time;}),ss=subset.map(function(d){return d.status;});
+    var xs=subset.map(function(d){return d.group===g?1:0;});
+    var res=coxPH(ts,ss,xs);res.group=g;
+    coxResults.push(res);
+  });
+  // Render
+  document.getElementById('kmChart').innerHTML=buildKMSvg();
+  document.getElementById('forestChart').innerHTML=buildForestSvg();
+  renderStats();
+}
+
+/* ===================== KM PLOT ===================== */
+function buildKMSvg(){
+  var FS=cfg.fs,LW=cfg.lw,W=cfg.W,showCI=document.getElementById('ciChk').checked;
+  var showRisk=document.getElementById('riskChk').checked,showCensor=document.getElementById('censorChk').checked;
+  var showMedian=document.getElementById('medianChk').checked,showPval=document.getElementById('pvalChk').checked;
+  var curveType=cfg.curve;
+  var riskH=showRisk?(30+groups.length*18)*FS:0;
+  var H=Math.round(W/cfg.ar)+riskH;
+  var f=function(px){return(px*FS).toFixed(1);};
+  var mL=Math.round(58+22*FS),mR=Math.round(30+8*FS),mT=Math.round(36+16*FS),mB=Math.round(30+10*FS)+riskH;
+  var plotW=W-mL-mR,plotH=H-mT-mB-riskH;
+  // Determine axis ranges
+  var maxT=0;groups.forEach(function(g){var km=kmResults[g];if(km)maxT=Math.max(maxT,km.times[km.times.length-1]);});
+  maxT=Math.ceil(maxT*1.05)||30;
+  var yMax=1,yMin=0;
+  if(curveType==='cumhaz'){yMax=0;groups.forEach(function(g){var km=kmResults[g];if(!km)return;for(var i=0;i<km.surv.length;i++){var ch=km.surv[i]>0?-Math.log(km.surv[i]):0;yMax=Math.max(yMax,ch);}});yMax=Math.ceil(yMax*1.2*10)/10||2;}
+  function X(t){return mL+t/maxT*plotW;}
+  function Y(v){if(curveType==='cumhaz')return mT+plotH-(v/yMax)*plotH;return mT+plotH-v*plotH;}
+  function transform(s){if(curveType==='mortality')return 1-s;if(curveType==='cumhaz')return s>0?-Math.log(s):0;return s;}
+
+  var aw=(LW*1.4).toFixed(2),lw=(LW*1.8).toFixed(2);
+  var s='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#fff"/>';
+  // Title
+  s+='<text x="'+(W/2)+'" y="'+(mT-10)+'" text-anchor="middle" font-family="Arial" font-size="'+f(16)+'" font-weight="700">'+escH(document.getElementById('titleIn').value)+'</text>';
+  // Axes
+  s+='<line x1="'+mL+'" y1="'+mT+'" x2="'+mL+'" y2="'+(mT+plotH)+'" stroke="#000" stroke-width="'+aw+'"/>';
+  s+='<line x1="'+mL+'" y1="'+(mT+plotH)+'" x2="'+(mL+plotW)+'" y2="'+(mT+plotH)+'" stroke="#000" stroke-width="'+aw+'"/>';
+  // Y ticks
+  var yTicks;
+  if(curveType==='cumhaz'){var step=yMax<=1?.2:yMax<=2?.5:yMax<=5?1:2;yTicks=[];for(var yy=0;yy<=yMax+step/2;yy+=step)yTicks.push(+yy.toFixed(2));}
+  else{yTicks=[0,.2,.4,.6,.8,1.0];}
+  yTicks.forEach(function(t){
+    var y=curveType==='cumhaz'?Y(t):Y(t);
+    s+='<line x1="'+(mL-4)+'" y1="'+y.toFixed(1)+'" x2="'+mL+'" y2="'+y.toFixed(1)+'" stroke="#000" stroke-width="'+(LW).toFixed(2)+'"/>';
+    s+='<text x="'+(mL-8)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" font-family="Arial" font-size="'+f(11)+'">'+t+'</text>';
+  });
+  // X ticks
+  var xStep=maxT<=10?1:maxT<=20?2:maxT<=50?5:10;
+  for(var xt=0;xt<=maxT;xt+=xStep){
+    var xx=X(xt);
+    s+='<line x1="'+xx.toFixed(1)+'" y1="'+(mT+plotH)+'" x2="'+xx.toFixed(1)+'" y2="'+(mT+plotH+4)+'" stroke="#000" stroke-width="'+(LW).toFixed(2)+'"/>';
+    s+='<text x="'+xx.toFixed(1)+'" y="'+(mT+plotH+16)+'" text-anchor="middle" font-family="Arial" font-size="'+f(11)+'">'+xt+'</text>';
+  }
+  // Axis labels
+  s+='<text transform="translate('+(mL-42*FS)+','+(mT+plotH/2)+') rotate(-90)" text-anchor="middle" font-family="Arial" font-size="'+f(12.5)+'" font-weight="600">'+escH(document.getElementById('ylabIn').value)+'</text>';
+  s+='<text x="'+(mL+plotW/2)+'" y="'+(mT+plotH+30)+'" text-anchor="middle" font-family="Arial" font-size="'+f(12.5)+'" font-weight="600">'+escH(document.getElementById('xlabIn').value)+'</text>';
+
+  // Draw each group
+  groups.forEach(function(g,gi){
+    var km=kmResults[g];if(!km)return;
+    var col=PALETTE[gi%PALETTE.length];
+    // CI band
+    if(showCI){
+      var band='M'+X(0).toFixed(1)+','+Y(transform(km.upper[0])).toFixed(1);
+      for(var i=1;i<km.times.length;i++){band+=' H'+X(km.times[i]).toFixed(1)+' V'+Y(transform(km.upper[i])).toFixed(1);}
+      band+=' H'+X(maxT).toFixed(1);
+      for(i=km.times.length-1;i>=0;i--){band+=' H'+X(km.times[i]).toFixed(1)+' V'+Y(transform(km.lower[i])).toFixed(1);}
+      band+=' H'+X(0).toFixed(1)+' Z';
+      s+='<path d="'+band+'" fill="'+col+'" fill-opacity="0.15" stroke="none"/>';
+    }
+    // Step function
+    var path='M'+X(0).toFixed(1)+','+Y(transform(km.surv[0])).toFixed(1);
+    for(i=1;i<km.times.length;i++){path+=' H'+X(km.times[i]).toFixed(1)+' V'+Y(transform(km.surv[i])).toFixed(1);}
+    path+=' H'+X(maxT).toFixed(1);
+    s+='<path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="'+lw+'"/>';
+    // Censor marks
+    if(showCensor){km.censorTimes.forEach(function(ct,ci){
+      var cy=Y(transform(km.censorS[ci]));
+      s+='<line x1="'+X(ct).toFixed(1)+'" y1="'+(cy-5)+'" x2="'+X(ct).toFixed(1)+'" y2="'+(cy+5)+'" stroke="'+col+'" stroke-width="'+(LW*1.2).toFixed(2)+'"/>';
+    });}
+    // Median lines
+    if(showMedian&&curveType==='survival'){var med=medianSurv(km);if(!isNaN(med.median)){
+      var my=Y(.5),mx=X(med.median);
+      s+='<line x1="'+mL+'" y1="'+my.toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+my.toFixed(1)+'" stroke="'+col+'" stroke-width="'+(LW*.8).toFixed(2)+'" stroke-dasharray="4,3"/>';
+      s+='<line x1="'+mx.toFixed(1)+'" y1="'+my.toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+(mT+plotH)+'" stroke="'+col+'" stroke-width="'+(LW*.8).toFixed(2)+'" stroke-dasharray="4,3"/>';
+    }}
+  });
+
+  // Legend
+  var legX=mL+plotW-10,legY=mT+10;
+  groups.forEach(function(g,gi){
+    var col=PALETTE[gi%PALETTE.length],ly=legY+gi*18*FS;
+    s+='<line x1="'+(legX-50*FS)+'" y1="'+ly.toFixed(1)+'" x2="'+(legX-30*FS)+'" y2="'+ly.toFixed(1)+'" stroke="'+col+'" stroke-width="'+lw+'"/>';
+    s+='<text x="'+(legX-26*FS)+'" y="'+(ly+4)+'" font-family="Arial" font-size="'+f(11)+'" fill="'+col+'">'+escH(g)+'</text>';
+  });
+
+  // P-value — bottom-left corner (near origin)
+  if(showPval&&lrResult){
+    s+='<text x="'+(mL+10)+'" y="'+(mT+plotH-8)+'" font-family="Arial" font-size="'+f(11.5)+'" fill="#333">Log-rank '+fmtP(lrResult.p)+'</text>';
+  }
+
+  // Risk table
+  if(showRisk){
+    var rY=mT+plotH+36;
+    s+='<text x="'+mL+'" y="'+(rY-4)+'" font-family="Arial" font-size="'+f(10)+'" fill="'+('#555')+'" font-weight="600">No. at risk</text>';
+    groups.forEach(function(g,gi){
+      var km=kmResults[g];if(!km)return;
+      var col=PALETTE[gi%PALETTE.length],ry=rY+gi*18*FS;
+      s+='<text x="'+(mL-8)+'" y="'+(ry+12)+'" text-anchor="end" font-family="Arial" font-size="'+f(10)+'" fill="'+col+'" font-weight="600">'+escH(g)+'</text>';
+      for(var xt2=0;xt2<=maxT;xt2+=xStep){
+        // Count at risk at time xt2
+        var gd=indivData.filter(function(d){return d.group===g;});
+        var nr=gd.filter(function(d){return d.time>=xt2;}).length;
+        s+='<text x="'+X(xt2).toFixed(1)+'" y="'+(ry+12)+'" text-anchor="middle" font-family="Arial" font-size="'+f(10)+'" fill="'+col+'">'+nr+'</text>';
+      }
+    });
+  }
+
+  return '<svg id="kmSVG" xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+s+'</svg>';
+}
+
+/* ===================== FOREST PLOT ===================== */
+function buildForestSvg(){
+  if(!coxResults||!coxResults.length)return '<div class="hint">Need 2+ groups to compute hazard ratios.</div>';
+  var showForestCI=document.getElementById('forestCiChk').checked;
+  var FS=cfg.fs,LW=cfg.lw,W=cfg.W,nR=coxResults.length;
+  var H=Math.max(120,60+nR*50)*FS;
+  var f=function(px){return(px*FS).toFixed(1);};
+  var mL=Math.round(120*FS),mR=Math.round(40*FS),mT=Math.round(40*FS),mB=Math.round(30*FS);
+  var plotW=W-mL-mR,plotH=H-mT-mB;
+  // Determine x range (log scale) always including 1
+  var allVals=[1];coxResults.forEach(function(r){if(isFinite(r.hrLo))allVals.push(r.hrLo);if(isFinite(r.hrHi))allVals.push(r.hrHi);allVals.push(r.hr);});
+  var logMin=Math.log2(Math.max(.01,Math.min.apply(null,allVals))),logMax=Math.log2(Math.max.apply(null,allVals));
+  var pad=(logMax-logMin)*.25||1;logMin-=pad;logMax+=pad;
+  function X(hr){return mL+(Math.log2(hr)-logMin)/(logMax-logMin)*plotW;}
+  var rowH=plotH/(nR+1);
+
+  var s='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#fff"/>';
+  // Title
+  // Title: show ref group and which groups are compared
+  var nonRefGroups=groups.filter(function(g){return g!==refGroup;});
+  s+='<text x="'+(W/2)+'" y="'+(mT-14)+'" text-anchor="middle" font-family="Arial" font-size="'+f(14)+'" font-weight="700">Hazard Ratio: '+nonRefGroups.join(', ')+' vs '+escH(refGroup)+' (Reference, HR=1)</text>';
+  // Reference line at HR=1
+  var x1=X(1);
+  s+='<line x1="'+x1.toFixed(1)+'" y1="'+mT+'" x2="'+x1.toFixed(1)+'" y2="'+(mT+plotH)+'" stroke="#888" stroke-width="'+(LW).toFixed(2)+'" stroke-dasharray="5,3"/>';
+  s+='<text x="'+x1.toFixed(1)+'" y="'+(mT-4)+'" text-anchor="middle" font-family="Arial" font-size="'+f(9.5)+'" fill="#888" font-style="italic">HR=1</text>';
+  // X axis
+  s+='<line x1="'+mL+'" y1="'+(mT+plotH)+'" x2="'+(mL+plotW)+'" y2="'+(mT+plotH)+'" stroke="#000" stroke-width="'+(LW).toFixed(2)+'"/>';
+  // X ticks: use nice powers of 2
+  var ticks=[.125,.25,.5,1,2,4,8,16].filter(function(t){return Math.log2(t)>=logMin&&Math.log2(t)<=logMax;});
+  ticks.forEach(function(t){var xx=X(t);
+    s+='<line x1="'+xx.toFixed(1)+'" y1="'+(mT+plotH)+'" x2="'+xx.toFixed(1)+'" y2="'+(mT+plotH+4)+'" stroke="#000" stroke-width="'+(LW).toFixed(2)+'"/>';
+    s+='<text x="'+xx.toFixed(1)+'" y="'+(mT+plotH+16)+'" text-anchor="middle" font-family="Arial" font-size="'+f(10)+'">'+t+'</text>';
+  });
+  s+='<text x="'+(mL+plotW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-family="Arial" font-size="'+f(11)+'" font-weight="600">Hazard Ratio (log2 scale)</text>';
+
+  // Each Cox result
+  coxResults.forEach(function(r,i){
+    var cy=mT+rowH*(i+1);
+    var col=PALETTE[(groups.indexOf(r.group))%PALETTE.length];
+    // CI bar
+    if(showForestCI){
+    var xlo=X(Math.max(Math.pow(2,logMin),r.hrLo)),xhi=X(Math.min(Math.pow(2,logMax),r.hrHi));
+    s+='<line x1="'+xlo.toFixed(1)+'" y1="'+cy.toFixed(1)+'" x2="'+xhi.toFixed(1)+'" y2="'+cy.toFixed(1)+'" stroke="'+col+'" stroke-width="'+(LW*2).toFixed(2)+'"/>';
+    }
+    // Point
+    s+='<circle cx="'+X(r.hr).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(5*FS).toFixed(1)+'" fill="'+col+'"/>';
+    // Label
+    s+='<text x="'+(mL-8)+'" y="'+(cy+4)+'" text-anchor="end" font-family="Arial" font-size="'+f(11.5)+'" font-weight="600" fill="'+col+'">'+escH(r.group)+'</text>';
+    // Annotation
+    var ann='HR='+r.hr.toFixed(2)+' ['+r.hrLo.toFixed(2)+'-'+r.hrHi.toFixed(2)+'] '+fmtP(r.p);
+    s+='<text x="'+X(r.hr).toFixed(1)+'" y="'+(cy-10*FS)+'" text-anchor="middle" font-family="Arial" font-size="'+f(9.5)+'" fill="#333">'+ann+'</text>';
+  });
+
+  return '<svg id="forestSVG" xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+Math.round(H)+'" viewBox="0 0 '+W+' '+Math.round(H)+'">'+s+'</svg>';
+}
+
+/* ===================== STATS TABLE ===================== */
+function renderStats(){
+  var h='';
+  // Log-rank
+  if(lrResult){h+='<p style="margin:0 0 8px"><b>Log-rank test:</b> chi-sq='+lrResult.chi2.toFixed(3)+', df='+lrResult.df+', '+fmtP(lrResult.p)+' <span class="sig">'+stars(lrResult.p)+'</span></p>';}
+  // Median survival
+  h+='<table><tr><th>Group</th><th>N</th><th>Events</th><th>Median survival</th><th>95% CI</th></tr>';
+  groups.forEach(function(g){
+    var km=kmResults[g];if(!km)return;
+    var gd=indivData.filter(function(d){return d.group===g;});
+    var nev=gd.filter(function(d){return d.status===1;}).length;
+    var med=medianSurv(km);
+    h+='<tr><td>'+escH(g)+'</td><td>'+gd.length+'</td><td>'+nev+'</td><td>'+(isNaN(med.median)?'NR':med.median.toFixed(1))+'</td><td>'+(isNaN(med.lower)?'—':med.lower.toFixed(1))+' - '+(isNaN(med.upper)?'—':med.upper.toFixed(1))+'</td></tr>';
+  });
+  h+='</table>';
+  // Cox results
+  if(coxResults.length){
+    h+='<p style="margin:12px 0 6px"><b>Cox Proportional Hazards</b> (ref: '+escH(refGroup)+')</p>';
+    h+='<table><tr><th>Contrast</th><th>HR</th><th>95% CI</th><th>z</th><th>p</th><th></th></tr>';
+    coxResults.forEach(function(r){
+      h+='<tr><td>'+escH(r.group)+' vs '+escH(refGroup)+'</td><td>'+r.hr.toFixed(3)+'</td><td>'+r.hrLo.toFixed(3)+' - '+r.hrHi.toFixed(3)+'</td><td>'+r.z.toFixed(3)+'</td><td>'+fmtP(r.p)+'</td><td class="sig">'+stars(r.p)+'</td></tr>';
+    });
+    h+='</table>';
+  }
+  document.getElementById('stats').innerHTML=h;
+  // Method notes
+  var curveLabel={survival:'Survival probability S(t)',mortality:'Cumulative mortality 1-S(t)',cumhaz:'Nelson-Aalen cumulative hazard -log S(t)'}[cfg.curve];
+  document.getElementById('methodNotes').innerHTML=
+    '<b>Plot:</b> '+curveLabel+' with Greenwood 95% CI. '+
+    '<b>Log-rank test</b> (Mantel-Cox): non-parametric comparison of survival distributions across all '+groups.length+' groups. '+
+    '<b>Cox PH model:</b> partial likelihood via Newton-Raphson; hazard ratios with Wald CI and p-value. Reference group: '+escH(refGroup)+'. '+
+    'NR = median not reached (survival never drops below 50%). '+
+    'All statistics computed client-side in JavaScript (no server required).';
+}
+
+/* ===================== EXPORT ===================== */
+function getSvg(which){return document.getElementById(which==='km'?'kmSVG':'forestSVG');}
+function svgStr(which){var el=getSvg(which);if(!el)return null;return '<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(el.cloneNode(true));}
+function dl(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+function exportSVG(which){var s=svgStr(which);if(!s)return;dl(new Blob([s],{type:'image/svg+xml'}),(which==='km'?'KM_curve':'forest_plot')+'.svg');}
+function exportPNG(which){var s=svgStr(which),el=getSvg(which);if(!s||!el)return;var w=+el.getAttribute('width'),h=+el.getAttribute('height'),scale=3,img=new Image(),blob=new Blob([s],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob);img.onload=function(){var c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;var ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.setTransform(scale,0,0,scale,0,0);ctx.drawImage(img,0,0);URL.revokeObjectURL(url);c.toBlob(function(b){dl(b,(which==='km'?'KM_curve':'forest_plot')+'.png');},'image/png');};img.src=url;}
+function csvCell(x){x=String(x);return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x;}
+function buildStatsRows(){
+  var rows=[['Comparison','HR','Lower_CI','Upper_CI','z','p_value','Significance','LogRank_chi2','LogRank_df','LogRank_p']];
+  if(lrResult)rows.push(['Overall log-rank','','','','',lrResult.p.toFixed(6),stars(lrResult.p),lrResult.chi2.toFixed(3),lrResult.df,lrResult.p.toFixed(6)]);
+  coxResults.forEach(function(r){rows.push([r.group+' vs '+refGroup,r.hr.toFixed(4),r.hrLo.toFixed(4),r.hrHi.toFixed(4),r.z.toFixed(4),r.p.toFixed(6),stars(r.p),'','','']);});
+  return rows;
+}
+function exportCSV(){var rows=buildStatsRows();dl(new Blob(['﻿'+rows.map(function(r){return r.map(csvCell).join(',');}).join('\r\n')],{type:'text/csv'}),'survival_stats.csv');}
+// Minimal XLSX (stored ZIP)
+function crc32(b){var t=crc32.t;if(!t){t=crc32.t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}}var crc=0xFFFFFFFF;for(var i=0;i<b.length;i++)crc=(crc>>>8)^t[(crc^b[i])&0xFF];return(crc^0xFFFFFFFF)>>>0;}
+function zipStore(files){var enc=new TextEncoder(),parts=[],central=[],off=0;function u16(n){return[n&255,(n>>8)&255];}function u32(n){return[n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];}files.forEach(function(f){var data=typeof f.data==='string'?enc.encode(f.data):f.data,nm=enc.encode(f.name),crc=crc32(data);var lh=[].concat([80,75,3,4],u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0));parts.push(new Uint8Array(lh),nm,data);central.push({h:[].concat([80,75,1,2],u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off)),nm:nm});off+=lh.length+nm.length+data.length;});var cdOff=off,cd=[];central.forEach(function(c){cd.push(new Uint8Array(c.h),c.nm);off+=c.h.length+c.nm.length;});var end=new Uint8Array([].concat([80,75,5,6],u16(0),u16(0),u16(files.length),u16(files.length),u32(off-cdOff),u32(cdOff),u16(0)));return new Blob(parts.concat(cd,[end]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
+function xmlEsc(s){return String(s).replace(/[&<>"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+function colL(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;}
+function exportXLSX(){var rows=buildStatsRows();var sd='';rows.forEach(function(row,ri){var cells='';row.forEach(function(cell,ci){if(cell===''||cell==null)return;var ref=colL(ci)+(ri+1);if(typeof cell==='number'&&isFinite(cell))cells+='<c r="'+ref+'"><v>'+cell+'</v></c>';else cells+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(String(cell))+'</t></is></c>';});sd+='<row r="'+(ri+1)+'">'+cells+'</row>';});var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+sd+'</sheetData></worksheet>';var wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Stats" sheetId="1" r:id="rId1"/></sheets></workbook>';var wbR='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';var rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';dl(zipStore([{name:'[Content_Types].xml',data:ct},{name:'_rels/.rels',data:rels},{name:'xl/workbook.xml',data:wb},{name:'xl/_rels/workbook.xml.rels',data:wbR},{name:'xl/worksheets/sheet1.xml',data:sheet}]),'survival_stats.xlsx');}
+
+/* ===================== UI WIRING ===================== */
+// Format toggle
+document.getElementById('fmtSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;[].forEach.call(e.currentTarget.children,function(x){x.classList.remove('on');});b.classList.add('on');fmt=b.dataset.f;
+  document.getElementById('fmtHint').textContent=fmt==='aggregate'?'Aggregate: each row = a time point per tank with death count.':'Individual: one row per subject with time, status (1=event, 0=censored), group.';});
+// Curve type toggle
+document.getElementById('curveSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;[].forEach.call(e.currentTarget.children,function(x){x.classList.remove('on');});b.classList.add('on');cfg.curve=b.dataset.c;
+  var ylab={survival:'Survival Probability',mortality:'Cumulative Mortality',cumhaz:'Cumulative Hazard'}[cfg.curve];
+  document.getElementById('ylabIn').value=ylab;runAnalysis();});
+// File upload
+var dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');var f=e.dataTransfer.files[0];if(f)readFile(f);});
+document.getElementById('fileIn').addEventListener('change',function(e){if(e.target.files[0])readFile(e.target.files[0]);});
+function readFile(f){var r=new FileReader();r.onload=function(e){document.getElementById('rawText').value=e.target.result;parseAndRun();};r.readAsText(f);}
+// Expand
+function toggleExpand(which){
+  var p=document.getElementById(which==='km'?'kmPanel':'forestPanel');if(!p)return;
+  var bd=document.getElementById(which+'Backdrop');
+  if(p.classList.contains('modal')){p.classList.remove('modal');if(bd)bd.remove();}
+  else{p.classList.add('modal');if(!bd){bd=document.createElement('div');bd.id=which+'Backdrop';bd.className='backdrop';bd.onclick=function(){toggleExpand(which);};document.body.appendChild(bd);}}
+}
+// Page themes
+var PAGE_THEMES={
+  blue:{name:'Blue',accent:'#2b6cb0',bg:'#5b6675',deco:['#1c4f8a','#2b6cb0','#3b82c4','#5a9bd4','#7fb3df','#a9cce8']},
+  teal:{name:'Teal',accent:'#0e8a7d',bg:'#4f6a68',deco:['#0a5d54','#0e8a7d','#16a99a','#4cc3b6','#84d8cf','#bfeae4']},
+  violet:{name:'Violet',accent:'#6b46c1',bg:'#5f5775',deco:['#4c2e96','#6b46c1','#855fd6','#a285e0','#c0aceb','#ddd2f4']},
+  crimson:{name:'Crimson',accent:'#c0392b',bg:'#6e5658',deco:['#8f231a','#c0392b','#d65f53','#e2867d','#edb1ab','#f6d8d4']},
+  green:{name:'Green',accent:'#2f855a',bg:'#566a5e',deco:['#1f5d3e','#2f855a','#3fa873','#6cc095','#9cd6b8','#cdeadd']},
+  amber:{name:'Amber',accent:'#b7791f',bg:'#6b6353',deco:['#8a5a12','#b7791f','#d4942f','#e3b15f','#eecc93','#f7e6c7']},
+  graphite:{name:'Graphite',accent:'#475569',bg:'#5c636d',deco:['#2f3a48','#475569','#64748b','#8a97a8','#b4bdca','#dde2e9']}
+};
+var PAGE_DECO=PAGE_THEMES.blue.deco;
+function hexBlend(hex,t){var h=hex.replace('#','');var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);r=Math.round(r+(255-r)*t);g=Math.round(g+(255-g)*t);b=Math.round(b+(255-b)*t);return'rgb('+r+','+g+','+b+')';}
+function applyPageTheme(key){var t=PAGE_THEMES[key];if(!t)return;var root=document.documentElement;root.style.setProperty('--accent',t.accent);root.style.setProperty('--accentSoft',hexBlend(t.accent,.86));root.style.setProperty('--bg',t.bg);PAGE_DECO=t.deco;var old=document.getElementById('headerDeco');if(old)old.remove();makeHeaderDeco();document.querySelectorAll('#pageThemeRow .themeswatch').forEach(function(s){s.classList.toggle('active',s.dataset.key===key);});}
+function makeHeaderDeco(){var hd=document.getElementById('appHeader');if(!hd)return;var W=760,H=84,cols=15,rows=3,cw=W/cols,ch=H/rows;var blues=PAGE_DECO||['#2b6cb0'];function rc(){return blues[Math.floor(Math.random()*blues.length)];}var s='<svg id="headerDeco" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMaxYMid slice" xmlns="http://www.w3.org/2000/svg">';for(var r=0;r<rows;r++)for(var c=0;c<cols;c++){var x=c*cw,y=r*ch,op=Math.min(1,.12+(c/cols)*1.05);if(Math.random()<.5){s+='<polygon points="'+x+','+y+' '+(x+cw)+','+y+' '+x+','+(y+ch)+'" fill="'+rc()+'" fill-opacity="'+op.toFixed(2)+'"/>';s+='<polygon points="'+(x+cw)+','+y+' '+(x+cw)+','+(y+ch)+' '+x+','+(y+ch)+'" fill="'+rc()+'" fill-opacity="'+op.toFixed(2)+'"/>';}else{s+='<polygon points="'+x+','+y+' '+(x+cw)+','+y+' '+(x+cw)+','+(y+ch)+'" fill="'+rc()+'" fill-opacity="'+op.toFixed(2)+'"/>';s+='<polygon points="'+x+','+y+' '+(x+cw)+','+(y+ch)+' '+x+','+(y+ch)+'" fill="'+rc()+'" fill-opacity="'+op.toFixed(2)+'"/>';}}s+='</svg>';hd.insertAdjacentHTML('beforeend',s);}
+(function(){var row=document.getElementById('pageThemeRow');row.innerHTML=Object.keys(PAGE_THEMES).map(function(k){var t=PAGE_THEMES[k];return'<div class="themeswatch" data-key="'+k+'" title="'+t.name+'" onclick="applyPageTheme(\''+k+'\')" style="background:linear-gradient(135deg,'+t.accent+' 58%,'+t.deco[3]+' 58%)"></div>';}).join('');})();
+// Init
+applyPageTheme('teal');
+document.getElementById('themeSel').value='lancet';
+updatePalette();
+</script>
+</body>
+</html>
