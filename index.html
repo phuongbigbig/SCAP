@@ -535,16 +535,24 @@ function loadExampleIndiv(){
   parseAndRun();
 }
 
+function clearResults(){
+  indivData=null;kmResults={};coxResults=[];lrResult=null;
+  document.getElementById('kmChart').innerHTML='<div class="hint">Load data and click Analyze to generate plots.</div>';
+  document.getElementById('forestChart').innerHTML='';
+  document.getElementById('stats').innerHTML='';
+  document.getElementById('groupChips').innerHTML='';
+  document.getElementById('groupInfo').textContent='Load data first to see detected groups.';
+}
 function parseAndRun(){
   showErr('');
   var text=document.getElementById('rawText').value;
-  if(!text.trim()){showErr('No data entered.');return;}
+  if(!text.trim()){clearResults();showErr('No data entered.');return;}
   indivData=parseData(text);
-  if(!indivData||!indivData.length)return;
+  if(!indivData||!indivData.length){clearResults();return;}
   // Detect groups
   var gs=Object.create(null);indivData.forEach(function(d){gs[d.group]=1;});
   groups=Object.keys(gs).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});
-  if(groups.length<2){showErr('Need at least 2 groups. Found: '+groups.join(', '));return;}
+  if(groups.length<2){clearResults();showErr('Need at least 2 groups. Found: '+groups.join(', '));return;}
   // Populate ref selector
   var sel=document.getElementById('refSel');
   sel.innerHTML=groups.map(function(g){return '<option value="'+escH(g)+'">'+escH(g)+'</option>';}).join('');
